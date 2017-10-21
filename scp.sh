@@ -16,9 +16,9 @@
 
 # Check for correct number of arguments.
 if ! [ "$#" == "2" ]; then
-	echo "Usage: scp [Source] [Target]"
-	echo "Securely copy file/folder from [Source] to [Target]:"
-	echo "Regex Incompatible"
+	echo " Usage: scp [Source] [Target]"
+	echo "  Securely copy file/folder from [Source] to [Target]:"
+	echo "  Regex Incompatible"
 	exit
 fi
 
@@ -31,33 +31,30 @@ if [ -d "$Source" ]; then
 	if [ "${Source: -1}" == "/" ]; then
 		Source="${Source::-1}"
 	fi
-	if [ "${Target: -1}" == "/" ]; then
-		Target="${Target::-1}"
-	fi
 	
-	# Make Target Dir if not existing.
+	# Create Target folder if does not exist.
 	if ! [ -d "$Target" ]; then
 		mkdir "$Target"
 	fi
 
 	# Recurse, for each item in the folder.
 	# Bypasses a quirk of cp that if run twice, incorrectly 
-	#  copies Source folder into Target folder
+	#  copies Source folder into Target folder on second run.
 	for j in "$Source"/*
 	do
 		"$0" "$j" "$Target${j:${#Source}}"
 	done
 
 elif ! [ -f "$Source" ]; then	# Break if file does not exist.
-	echo "Source File/Folder Invalid"
+	echo "Source Invalid  $Source"
 	exit
 else	
 	cp -a "$Source" "$Target" #Default (File, exists): Copy.
 fi
 
-
-# Excessive, as runs in each level of recursion. 
-#  May add recurse-flag in future so that only the first layer runs the check.
+# Calculate, compare checksums of Source and Target files.
+#  Excessive, as runs in each level of recursion. 
+#  May add recurse-flag so that only the first layer runs the check.
 SourceChecksum=`md5deep -rb -j0 "$Source"`
 TargetChecksum=`md5deep -rb -j0 "$Target"`
 

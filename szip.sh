@@ -4,18 +4,22 @@
 # Date		October 20, 2017	
 
 # Purpose	Intended to compress folders containing many small files (Images, Books, Music)
-#		to increase simplicity of filing and corruption checking.
+#		to increase simplicity of filing and integrity verification.
 
-# CALL		szip [Directory]
+# CALL		szip [Directory]*
 #		Compresses files within [Directory].
 #		Regex Compatible
 
+# REQUIREMENTS	md5deep, a component of 'hashdeep'.
+#		   All Distro-repositories carry this program.
+#		   https://github.com/jessek/hashdeep/
+
 #!/bin/bash
 
-# Check for correct number of arguments. Incorrect pathing or file-pointing is ignored.
+# Check for correct number of arguments, inform user of usage.
 if [ "$#" == "0" ]; then
-	echo "Usage: \`szip.sh [Directory]\`"
-	echo "[Directory] is Regex Compatible"
+	echo " Usage: \`szip.sh [Directory]*\`"
+	echo "  [Directory] is Regex Compatible"
 	exit
 fi
 
@@ -38,10 +42,10 @@ do
 		FullPath="${FullPath::-1}"
 	fi
 	
-	#Path is now accurate. Does not have trailing '/'
+	#Path is now non-relative. Does not have trailing '/'
 
-	#Skip if non-folder. This program designed for bulk archival.
-	#May implement or fork at later date.
+	#Skip if non-folder. This program designed for compression of folders for bulk archival.
+	#May implement at later date.
 	if ! [ -d "$FullPath" ]; then
 		continue
 	fi
