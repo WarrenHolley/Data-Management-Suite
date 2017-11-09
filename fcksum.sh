@@ -1,7 +1,7 @@
 # fcksum - File-stored Checksum
 # Author	Warren Holley
 # Version 	0.1.0
-# Date		October 20, 2017	
+# Date		October 19, 2017	
 
 # Purpose	Check the pointed File for corruption or error, by storing the checksum in the 
 #		 Filename. Extends the linux CRC32 utility.
