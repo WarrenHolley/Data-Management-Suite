@@ -1,4 +1,4 @@
-# scp - Secure Copy
+# paranoidCopy - Copy File with Post-Copy Checksum
 # Author	Warren Holley
 # Version 	0.1.0
 # Date		October 20, 2017	

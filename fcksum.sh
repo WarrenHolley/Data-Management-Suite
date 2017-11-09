@@ -1,13 +1,13 @@
-# fcksum - File-stored Checksum
+# fcksum - File Name-stored Checksum
 # Author	Warren Holley
 # Version 	0.1.0
 # Date		October 19, 2017	
 
 # Purpose	Check the pointed File for corruption or error, by storing the checksum in the 
-#		 Filename. Extends the linux CRC32 utility.
-#		Stores the information at the end of the Filename, before the Filetype.
-#		Intended for data archival, where files may be moved around. Most file-stored
-#		 checksums do not like directory or sorting changes.
+#		 File Name. Extends the CoreUtils CRC32 utility.
+#		Stores the information at the end of the File Name, before the File Type.
+#		Intended for data archival, where files may be moved around. Most seperate
+#		 file-stored checksums do not like directory or sorting changes.
 
 # Notes		This program is just an SFV variant, though is easily modifiable to use
 #		 cryptographic or other hash functions.
@@ -19,8 +19,9 @@
 #			Incompatible with multi-step filestypes (.tar.gz). 
 
 # CALL		filecksum [File or Folder]*
-#		Compares CRC32 in Filename to calculated checksum. Informs user if not equal.
-#		If no Filename checksum, adds to the filename before the Filetype.
+#		For each file, and for each file in a folder:
+#		Compares CRC32 in File Name to calculated CRC32 checksum. Informs user if not equal.
+#		If there is no checksum within the File Name, add it to the Filename before the Filetype.
 #		Regex compatible
 
 #!/bin/bash
