@@ -46,11 +46,12 @@
 # -u		Update. Updates checksums that are incorrect. 
 #		 (ONLY RECOMMENDED AFTER KNOWING WHAT FILES ARE TO BE UPDATED)
 
-# Planned Flags:
+# -F		Fast Mode. Don't compare files with checksums. Only add or delete.
 # -V		Volatile: Adds volatile ([*]) checksum to all files without a checksum. 
-#		 (Ignores files with a standard checksum)
-# -F		Fast Mode. Skip checksum calc & comparison. 
-#		 For use with remove or add-volatile checksum commands.
+
+# Planned Flags:
+
+
 # -U		Hard Update. Replaces all volatile checksums ([*]) with standard CRC32 checksums
 # -Q		Hard Quiet. Don't push any info to StdOut or StdErr.
 
@@ -88,7 +89,7 @@ function stdPrint { #Print to StdOut if Quiet Flag not set.
 	fi
 }
 #------------------------------------------------------
-# Informs user on how to use this program.
+# Informs user on how to use this program. TODO: UPDATE
 function printUsage {
 echo "FileChecksum.sh [-Rqvaux] [File or Folder]*"
 echo " An SVF Implementation"
@@ -180,26 +181,26 @@ echo "-1" #Default case. No checksum found.
 #--------------------------------------------------------------------------------------
 
 # addNameChecksum
-#  Adds Checksum of filename in $1
+#  Adds Checksum in $2 to filename in $1
 #  $1 must exist, not have checksum.
 #  Places checksum, bound in sq. brackets, behind the first '.' found.
 #   Placed normally behind the filetype.
 #   If added to hidden file without extention, prepend a '.' as to keep the file hidden.
 #   If added to file without extention, append checksum to the file.
 
+
 function addNameChecksum {
 localFileName="$1"
-
-#Recalculate Checksum. Slower, but due to name changes, needed.
-checksum="["`crc32 "$localFileName"`"]" 
+localChecksum="$2"
 
 # Find index of file name extention.
-for ((fi=${#localFileName}; fi>=0; fi--))
+for ((fi=${#localFileName}; fi>=0; fi--)) 
 do
 	if [ "${localFileName:fi:1}" == "." ]; then 
 		break
 	fi
 done
+
 #If a Hidden File (w/ no extention), keep hidden
 if [ "$fi" == "0" ]; then 
 	checksum=".$checksum" #Prepend, prepend '.'
@@ -208,7 +209,8 @@ elif [ "$fi" == "-1" ]; then
 	fi=${#localFileName} #Append checksum
 fi
 #Finally, add checksum to filename.
-mv "$localFileName" "${localFileName::fi}$checksum${localFileName:fi}"
+mv "$localFileName" "${localFileName::fi}[$localChecksum]${localFileName:fi}"
+
 }
 
 #---------------------------------------------------------------------------------
@@ -249,6 +251,9 @@ addFlag="false"
 deleteFlag="false"
 updateFlag="false"
 
+fastFlag="false"
+volatileFlag="false"
+
 
 #------------------------
 #------  SETUP  ---------
@@ -271,6 +276,8 @@ do
 			"a") addFlag="true" ;;
 			"x") deleteFlag="true" ;;
 			"u") updateFlag="true" ;;
+			"F") fastFlag="true";;
+			"V") volatileFlag="true";;
 			"h") printUsage ; exit ;;
 			*) echo "Unknown flag: '${argArray:0:1}'";
 				echo "Printing Help Page" ; echo "";
@@ -303,6 +310,13 @@ if [ "$deleteFlag" == "true" ] && [ "$updateFlag" == "true" ]; then
 	echo " Exiting."	
 	exit
 fi
+if [ "$volatileFlag" == "true" ] && [ "$addFlag" == "true" ]; then
+	echo "Flag Mutex Error:"
+	echo " Both Volatile and Add/Delete flags are on."
+	echo " These have mutually exclusive effects."
+	echo " Exiting."	
+	exit
+fi 
 
 #Setup Flags to include upon recursion. (TODO: Clean up.)
 recurseFlags="-R" #Automatic
@@ -321,6 +335,12 @@ fi
 if [ "$updateFlag" == "true" ]; then
 	recurseFlags="$recurseFlags"u
 fi
+if [ "$fastFlag" == "true" ]; then
+	recurseFlags="$recurseFlags"F
+fi
+if [ "$volatileFlag" == "true" ]; then
+	recurseFlags="$recurseFlags"V
+fi 
 
 
 #----------------------------------
@@ -370,15 +390,20 @@ do
 		continue
 	fi
 
-	fileDataChecksum=`crc32 "$fileName"` #Calculate Checksum
-	fileDataChecksum=${fileDataChecksum:0:8} #Truncate
-
-	fileNameChecksum=`getNameChecksum "$fileName"` #Fetch Name Checksum
-
+	#Fetch checksum from Name
+	fileNameChecksum=`getNameChecksum "$fileName"`
+	
 	#If no checksum, add if Add flag set.
 	if [ "$fileNameChecksum" == "" ] && [ "$addFlag" == "true" ]; then
-		addNameChecksum "$fileName"
+		fileDataChecksum=`crc32 "$fileName"` #Calculate Checksum
+		fileDataChecksum=${fileDataChecksum:0:8} #Truncate
+		addNameChecksum "$fileName" "$fileDataChecksum"
 		stdPrint "Added Checksum - $fileName"
+		continue
+	#If no checksum, add volatile if Volatile flag set.
+	elif [ "$fileNameChecksum" == "" ] && [ "$volatileFlag" == "true" ]; then
+		addNameChecksum "$fileName" "*"
+		stdPrint "Added Volatile - $fileName"
 		continue
 	#No checksum, but do not add:
 	elif [ "$fileNameChecksum" == "" ]; then
@@ -390,6 +415,14 @@ do
 		continue
 	fi 
 
+	#Calculate File Checksum if not in 'Fast' mode.
+	if [ "$fastFlag" == "true" ]; then
+		continue
+	elif [ "$fileDataChecksum" == "" ]; then #If hasn't been calculated yet.
+		fileDataChecksum=`crc32 "$fileName"` #Calculate Checksum
+		fileDataChecksum=${fileDataChecksum:0:8} #Truncate
+	fi
+
 	#Compare remembered and calculated checksums	
 	# If equal, good. Continue
 	if [ "${fileNameChecksum,,}" == "${fileDataChecksum,,}" ]; then #${i,,} == toLower(i);
@@ -397,7 +430,7 @@ do
 	# If unequal, has Update Flag set, update.
 	elif [ "$updateFlag" == "true" ]; then
 		updatedName=(`removeNameChecksum "$fileName"`)
-		addNameChecksum "$updatedName"
+		addNameChecksum "$updatedName" "$fileDataChecksum"
 		stdPrint "UPDATE $fileName"
 		stdPrint " $fileNameChecksum -> $fileDataChecksum"
 	# Otherwise, alarm user.
@@ -405,4 +438,5 @@ do
 		errPrint "!BAD - $fileName"
 		errPrint " $fileNameChecksum != $fileDataChecksum"
 	fi
+	
 done
