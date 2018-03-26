@@ -49,6 +49,13 @@
 # -F		Fast Mode. Don't compare files with checksums. Only add or delete.
 # -V		Volatile: Adds volatile ([*]) checksum to all files without a checksum. 
 
+# -S		Space. When adding, add a space preceding the checksum   (F.A -> F [x].A)
+#			When removing, scrub excess spaces immediately preceding the checksum.
+# -P		Period. When adding, add a period preceding the checksum (F.A -> F.[x].A)
+#			When removing, scrub excess periods immediately preceding the checksum.
+#		 Default neither: append immediately 	    (F.A -> F[x].A)
+
+
 # Planned Flags:
 
 
@@ -201,15 +208,26 @@ do
 	fi
 done
 
-#If a Hidden File (w/ no extention), keep hidden
-if [ "$fi" == "0" ]; then 
-	checksum=".$checksum" #Prepend, prepend '.'
-#else File has no filetype
-elif [ "$fi" == "-1" ]; then 
-	fi=${#localFileName} #Append checksum
+#Surround with square brackets.
+localChecksum="[$localChecksum]"
+
+# If Space Flag, and not a hidden file, prepend " "
+if [ "$spaceFlag" == "true" ] && ! [ "$fi" == "0" ]; then
+	localChecksum=" $localChecksum"
 fi
+
+#If Period Flag, or hidden file, prepend '.'
+if [ "$periodFlag" == "true" ] || [ "$fi" == "0" ]; then 
+	localChecksum=".$localChecksum"
+fi
+
+#If File has no filetype, append checksum
+if [ "$fi" == "-1" ]; then 
+	fi=${#localFileName} 
+fi
+
 #Finally, add checksum to filename.
-mv "$localFileName" "${localFileName::fi}[$localChecksum]${localFileName:fi}"
+mv "$localFileName" "${localFileName::fi}$localChecksum${localFileName:fi}"
 
 }
 
@@ -227,6 +245,17 @@ elif [ "${1:index:3}" == "[*]" ]; then
 else #Default, length=10. (TODO: global-length var)
 	endIndex=$index+10
 fi
+
+#Also remove prepended spaces or periods if needed.
+#Upgrade to loop? Single-test unlikely to scrub a whole filename, and using 
+#both spaces and periods in file-organziational schema is rare.
+if [ "$periodFlag" == "true" ] && [ "${1:index-1:1}" == "." ]; then
+	index=$index-1
+fi
+if [ "$spaceFlag" == "true" ] && [ "${1:index-1:1}" == " " ]; then
+	index=$index-1
+fi 
+
 mv "$1" "${1:0:index}${1:endIndex}" #Rename file
 echo "${1:0:index}${1:endIndex}" #Return name of new file.
 }
@@ -240,6 +269,8 @@ echo "${1:0:index}${1:endIndex}" #Return name of new file.
 # -a - Add checksums if needed
 # -x - Delete Checksums
 # -u - Update incorrect
+# -S - Add/Remove Spaces
+# -P - Add/Remove Periods
 
 #DEBUG:
 recurseFlag="false"
@@ -253,6 +284,9 @@ updateFlag="false"
 
 fastFlag="false"
 volatileFlag="false"
+
+spaceFlag="false"
+periodFlag="false"
 
 
 #------------------------
@@ -278,6 +312,8 @@ do
 			"u") updateFlag="true" ;;
 			"F") fastFlag="true";;
 			"V") volatileFlag="true";;
+			"S") spaceFlag="true";;
+			"P") periodFlag="true";;
 			"h") printUsage ; exit ;;
 			*) echo "Unknown flag: '${argArray:0:1}'";
 				echo "Printing Help Page" ; echo "";
@@ -318,6 +354,14 @@ if [ "$volatileFlag" == "true" ] && [ "$addFlag" == "true" ]; then
 	exit
 fi 
 
+if [ "$spaceFlag" == "true" ] && [ "$periodFlag" == "true" ] && [ "$addFlag" == "true" ]; then
+	echo "Flag Mutex Error:"
+	echo " Both Space and Flag flags are on alongside Add."
+	echo " Would prepend both to each checksum."
+	echo " Exiting."	
+	exit
+fi  
+
 #Setup Flags to include upon recursion. (TODO: Clean up.)
 recurseFlags="-R" #Automatic
 if [ "$verboseFlag" == "true" ]; then
@@ -341,6 +385,12 @@ fi
 if [ "$volatileFlag" == "true" ]; then
 	recurseFlags="$recurseFlags"V
 fi 
+if [ "$spaceFlag" == "true" ]; then
+	recurseFlags="$recurseFlags"S
+fi 
+if [ "$periodFlag" == "true" ]; then
+	recurseFlags="$recurseFlags"P
+fi 
 
 
 #----------------------------------
@@ -349,6 +399,10 @@ fi
 #For each Argument:
 for ((i=1;i<=$#;i++))
 do
+	#Clear last loop's variables
+	fileNameChecksum=""
+	fileDataChecksum=""
+	
 	#If flag, with argument, skip both.
 	if [ "${!i}" == "-X" ]; then #Unimplemented Prototype - Add || tests as needed
 		i=$((i+1))
